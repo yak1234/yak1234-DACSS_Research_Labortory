@@ -1,0 +1,192 @@
+---
+title: "My document"
+---
+
+
+First Extract the Data from the World Bank API using an R Script.
+
+**Extract**
+
+```{r}
+source("load_worldbank.R")
+```
+
+
+**Transform**
+
+Use Python for Data Engineering and Data Cleaning.
+
+```{python}
+exec(open("transform_merge_data_.py").read())
+```
+
+**Load**
+```{r}
+merged_mpd <- read.csv("merged_mpd.csv")
+
+```
+
+Country and Partynames,
+
+
+
+| Country | New Radical Right Party |
+|---------|-------------------------|
+| Denmark | Danish People's Party   |
+| France  | National Front          |
+| Germany | Alternative for Germany |
+| Hungary | Fidesz                  |
+| Italy   | Brothers of Italy       |
+| Italy   | Northern League         |
+| Norway  | Progress Party          |
+| Poland  | Law and Justice Party   |
+| Sweden  | Sweden Democrats        |
+
+Create Dummy Variables for each New Radical Right Party.
+
+```{r}
+## Dummy Variable for National Front, France's NRR Party.
+merged_mpd$nf_dummy <- ifelse(merged_mpd$partyname == "National Front", 1, 0)
+```
+
+```{r}
+## Dummy Variable for Alternative for Germany, Germany's NRR Party.
+merged_mpd$afd <- ifelse(merged_mpd$partyname == "Alternative for Germany", 1, 0)
+```
+
+```{r}
+## Dummy Variable for Voice(Vox), Spain's NRR Party.
+merged_mpd$spain_dummy <- ifelse(merged_mpd$partyname == "Voice", 1, 0)
+```
+
+```{r}
+## Dummy Variable for Danish People's Party, Denmark's NRR Party.
+merged_mpd$dk_dummy <- ifelse(merged_mpd$partyname == "Danish People’s Party", 1, 0)
+```
+
+```{r}
+## Dummy Variable for Sweden Democrats, Sweden's NRR Party.
+merged_mpd$sd_dummy <- ifelse(merged_mpd$partyname == "Sweden Democrats", 1, 0)
+```
+
+```{r}
+## Dummy Variable for Law and Justice, Poland's NRR Party.
+merged_mpd$pd_dummy <- ifelse(merged_mpd$partyname == "Law and Justice", 1, 0)
+```
+
+```{r}
+## Dummy Variable for Progress Party, Norway's NRR Party.
+merged_mpd$pp_dummy <- ifelse(merged_mpd$partyname == "Progress Party", 1, 0)
+```
+
+```{r}
+## Italy has Two New Radical Right Parties,  Brothers of Italy is the Party of the current far-right Prime Minister, Meloni but the Northern League is also a Coaltion Party and has been aroudn longer..
+merged_mpd$brothers_of_italy <- ifelse(merged_mpd$partyname == "Brothers of Italy", 1, 0)
+merged_mpd$nord_league <- ifelse(merged_mpd$partyname == "Northern League", 1, 0)
+```
+
+```{r}
+## Fidesz has had multiple Coaltions with different Parties, so a dummy value for Each Coalition name. This is relevant as Fidesz started off as a Classcially Liberal Party but has since moved to the Far-Right. fidesz_hdfa is the current Coalition Party of Fidesz and is the Far-Right Party used as comparsion against their fellow NRR counterparts.
+merged_mpd$fidesz_cdp <- ifelse(merged_mpd$partyname == "Alliance of Federation of Young Democrats - Hungarian Civic Union - Christian Democratic People's Party", 1, 0)
+merged_mpd$fidesz_hdfa <- ifelse(merged_mpd$partyname == "Federation of Young Democrats - Hungarian Civic Party - Hungarian Democratic Forum- Alliance", 1, 0)
+merged_mpd$fidesz_ <- ifelse(merged_mpd$partyname == "Federation of Young Democrats", 1, 0)
+```
+
+
+```{r}
+library(lme4)   
+```
+
+Running a Regression Model for each NRR Party.
+##Hypothesis 1
+Hypothesis 1:NRR Parties shift their Economic positions during rates of higher unemployment or to match European sentiments.
+
+
+First lets look at the welfare positions of all NRR parties
+The welfare variable measures how pro-welfare, a political party is based on their manifestos. The higher the number, the more pro-welfare the party is. The lower the number, the more anti-welfare the party is.
+
+##Welfare
+```{r}
+library(stargazer)
+nrr_welfare <-(lm(welfare ~ nf_dummy + afd + spain_dummy + dk_dummy + sd_dummy + pd_dummy + pp_dummy + brothers_of_italy + nord_league + fidesz_hdfa, data = merged_mpd))
+party_names <- c("National Front", "Alternative for Germany", "Voice", "Danish People's Party",
+                 "Sweden Democrats", "Law and Justice", "Progress Party", "Brothers of Italy",
+                 "Northern League", "Fidesz - HDFa")
+ stargazer(nrr_welfare, type = "text", title = "Welfare Regression",
+          covariate.labels = party_names)                
+```
+
+
+It appears that only as a whole many NRR parties have an inverse relationship with Pro-Welfare policies. National Front for example has tried to shift towards a Welfare Chauvinist position but overall they seem anti-welfare.
+
+
+Let's try one multi-level regression to see if varies accross coderyear and add unemployment rates to see if there is a relationship between High  Unemployment and welfare positions.
+The Coderyear refers to the year the manifesto was coded.
+
+```{r}
+nrr_welfare_unemployment_multi_level <- lmer(welfare ~ nf_dummy + afd + spain_dummy + dk_dummy + sd_dummy + pd_dummy + pp_dummy + brothers_of_italy + nord_league + fidesz_hdfa +SL.UEM.TOTL.ZS+(1 | coderyear), data = merged_mpd)
+summary(nrr_welfare_unemployment_multi_level)
+```
+
+As a whole it also, seems that there actually is a Inverse relationship of unemployment and Political parties becoming more pro-welfare. So, we can overal reject that NRR parties become more pro-welfare during a crisis.
+
+Among Individual parties, National Front and AfD have a positive correlation with welfare policies during higher unemployment rates. However, their t-value is overall negative. The only NRR party wth a positive t-value is the sd_dmm which is the Swedish Democrats.
+
+##Market Economy
+
+This regression below tests suppor for Market Economy with markeco variable. I have also added a E036 variable which is a pro-free-market varabile from EVS, measuring European survey support Privatiziation
+
+```{r}
+markeco_evs<- lmer(markeco ~ nf_dummy + afd + spain_dummy + dk_dummy + sd_dummy + pd_dummy + pp_dummy + brothers_of_italy + nord_league + fidesz_hdfa +SL.UEM.TOTL.ZS+(1 | coderyear), data = merged_mpd)
+summary(markeco_evs)
+```
+
+The T values of most parties except for dk_dummy(Denmark), sd_dummy(Sweden) and pp_dummy(Nirway), are postive , showing that most NRR parties are extremely pro-free_market.
+
+The correlation of Fixed Effects, shows that Afd and National Front both have higher correlations of supporting more free-market policies during higher rates of unemployment. This is interesting as both parties have tried to shift towards a more pro-welfare position.
+
+For the Scandinavian countries, Denmark,Sweden and Norway, only Sweden is shown to have a negative Cross-level interaction with unemployment and support for free-market policies. Overall it seems that NRR parties do not shift their economic positions to the center during increased time_periods of unemployment. It even seems that for NRR parties, increased unemployment means more support for free-market policies, more privatization to address the issue.
+
+##European Values Survey
+
+Now I want to see if NRR parties shift their positions to match European sentiments. I will use the E036 variable from the European Values Survey, which measures support for privatization. The higher the number, the more support for privatization.
+
+
+
+```{r}
+markeco_evs<- lmer(markeco ~ nf_dummy + afd + spain_dummy + dk_dummy + sd_dummy + pd_dummy + pp_dummy + brothers_of_italy + nord_league + fidesz_hdfa +E036+(1 |coderyear), data = merged_mpd)
+summary(markeco_evs)
+```
+
+There seems to be an overall wea relationship European support for privatization and NRR parties. The Cross Correlation among individual NRR parties shows very weak levels of correlation. 
+
+
+
+Now let's try looking at the EVS Value for welfare, E037, the higher the number , the more a survey respondent supports Government providing welfare assitance. 
+
+```{r}
+welfare_evs<- lmer(welfare ~ nf_dummy + afd + spain_dummy + dk_dummy + sd_dummy + pd_dummy + pp_dummy + brothers_of_italy + nord_league + fidesz_hdfa +E037+(1 |coderyear), data = merged_mpd)
+summary(welfare_evs)
+```
+
+Overall, there is a Negative Correlation in Polittical Parties becoming more pro-welfare and Europeans being more Pro-welfare at the same time. It's an inverse relationship.
+
+
+Hypopthesis 2: NRR parties shift their stance on immigration during higher migration rates. They also adopt anti-mulitcultural policies due to European sentiments.
+
+```{r}
+immigration<- lmer(per601_2 ~ nf_dummy + afd + spain_dummy + dk_dummy + sd_dummy + pd_dummy + pp_dummy + brothers_of_italy + nord_league + fidesz_hdfa+SM.POP.NETM+(1 |coderyear), data = merged_mpd)
+summary(immigration)
+```
+
+Swedish Democrats seem to be the only NRR party that really has a Positive Correlation of Anti-Immigrant policy and Immigration Statisitcs. National Front has a positve weak correlation between migration rates and anit-Immigrant policy.
+
+
+Now one last model to see if NRR parties adopt anti-multicultural policies during higher migration rates, and if it has relations with European sentiment, by adding the EVS variable G043, measuring anti-multiculturalism attitudes among europeans.
+```{r}
+anti_muliticultural_model<- lmer(per607_2 ~ nf_dummy + afd + spain_dummy + dk_dummy + sd_dummy + pd_dummy + pp_dummy + brothers_of_italy + nord_league + fidesz_hdfa+SM.POP.NETM+G043+(1 |coderyear), data = merged_mpd)
+summary(anti_muliticultural_model)
+```
+
+The model overall shows a inverse relationship that Europeans are not as anti-multicultural overall as NRR parties and there is no correlation between NRR parties becoming more anti-multicultural and Europeans becoming more anti-multicultural. Altough there is a small slight correlation between European becoming more anti-multicultural as migration rates increase.
+
