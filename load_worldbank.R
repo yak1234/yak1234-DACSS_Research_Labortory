@@ -5,7 +5,7 @@ library(WDI)
 library(dplyr)
 # Set the countries and indicators
 countries <- c("FRA", "DEU", "HUN","ITA", "POL", "ESP", "SWE", "NLD", "NOR", "DNK")
-indicators <- c( "SL.UEM.TOTL.ZS", "SI.POV.GINI","NY.GDP.PCAP.PP.KD", "SM.POP.NETM")
+indicators <- c( "SL.UEM.TOTL.ZS", "SI.POV.GINI","NY.GDP.MKTP.KD.ZG", "SM.POP.NETM")
 # Pull the data from the World Bank API
 wb_data <- WDI(country = countries, indicator = indicators)
 print(paste("Script is pulling", length(countries), "countries:  ", paste(countries, collapse = ", ")))
